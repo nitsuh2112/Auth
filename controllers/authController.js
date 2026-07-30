@@ -1,13 +1,14 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import User from "../models/userModel.js";
+
 
 // Register
 export const register = async (req, res) => {
     try {
         const { username, email, password } = req.body;
 
-        // Check if email already exists
         const existingUser = await User.findOne({ email });
 
         if (existingUser) {
@@ -16,17 +17,14 @@ export const register = async (req, res) => {
             });
         }
 
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
         const user = new User({
             username,
             email,
             password: hashedPassword
         });
 
-        // Save user
         await user.save();
 
         res.status(201).json({
@@ -40,13 +38,17 @@ export const register = async (req, res) => {
     }
 };
 
+
+
 // Login
 export const login = async (req, res) => {
     try {
+
         const { email, password } = req.body;
 
-        // Find user
+
         const user = await User.findOne({ email });
+
 
         if (!user) {
             return res.status(404).json({
@@ -54,8 +56,9 @@ export const login = async (req, res) => {
             });
         }
 
-        // Compare password
+
         const match = await bcrypt.compare(password, user.password);
+
 
         if (!match) {
             return res.status(401).json({
@@ -63,7 +66,7 @@ export const login = async (req, res) => {
             });
         }
 
-        // Generate JWT
+
         const token = jwt.sign(
             {
                 id: user._id,
@@ -75,25 +78,35 @@ export const login = async (req, res) => {
             }
         );
 
+
         res.json({
             message: "Login successful",
             token
         });
 
+
     } catch (error) {
+
         res.status(500).json({
             message: error.message
         });
+
     }
 };
 
-// Reset Password
-export const resetPassword = async (req, res) => {
-    try {
-        const { email, newPassword } = req.body;
 
-        // Find user
+
+
+// Forgot Password
+export const forgotPassword = async (req, res) => {
+
+    try {
+
+        const { email } = req.body;
+
+
         const user = await User.findOne({ email });
+
 
         if (!user) {
             return res.status(404).json({
@@ -101,22 +114,109 @@ export const resetPassword = async (req, res) => {
             });
         }
 
-        // Hash new password
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        // Update password
-        user.password = hashedPassword;
+        const resetToken = crypto.randomBytes(32).toString("hex");
 
-        // Save changes
+
+        user.resetToken = resetToken;
+
+        user.resetTokenExpire = Date.now() + 3600000; // 1 hour
+
+
         await user.save();
 
+
         res.json({
-            message: "Password reset successfully"
+
+            message: "Password reset token created",
+
+            token: resetToken
+
         });
 
+
+
     } catch (error) {
+
+
         res.status(500).json({
+
             message: error.message
+
         });
+
+
     }
+
+};
+
+
+
+
+// Reset Password
+export const resetPassword = async (req, res) => {
+
+    try {
+
+        const { newPassword } = req.body;
+
+
+        const user = await User.findOne({
+
+            resetToken: req.params.token,
+
+            resetTokenExpire: { $gt: Date.now() }
+
+        });
+
+
+
+        if (!user) {
+
+            return res.status(400).json({
+
+                message: "Invalid or expired token"
+
+            });
+
+        }
+
+
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+
+
+        user.password = hashedPassword;
+
+
+        user.resetToken = undefined;
+
+        user.resetTokenExpire = undefined;
+
+
+        await user.save();
+
+
+
+        res.json({
+
+            message: "Password reset successfully"
+
+        });
+
+
+
+    } catch (error) {
+
+
+        res.status(500).json({
+
+            message: error.message
+
+        });
+
+
+    }
+
 };
