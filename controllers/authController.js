@@ -7,7 +7,7 @@ export const register = async (req, res) => {
     try {
         const { username, email, password } = req.body;
 
-        // Check if email exists
+        // Check if email already exists
         const existingUser = await User.findOne({ email });
 
         if (existingUser) {
@@ -26,7 +26,7 @@ export const register = async (req, res) => {
             password: hashedPassword
         });
 
-        // Save to MongoDB
+        // Save user
         await user.save();
 
         res.status(201).json({
@@ -65,14 +65,53 @@ export const login = async (req, res) => {
 
         // Generate JWT
         const token = jwt.sign(
-            { id: user._id, email: user.email },
+            {
+                id: user._id,
+                email: user.email
+            },
             process.env.JWT_SECRET,
-            { expiresIn: "1h" }
+            {
+                expiresIn: "1h"
+            }
         );
 
         res.json({
             message: "Login successful",
             token
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            message: error.message
+        });
+    }
+};
+
+// Reset Password
+export const resetPassword = async (req, res) => {
+    try {
+        const { email, newPassword } = req.body;
+
+        // Find user
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password
+        user.password = hashedPassword;
+
+        // Save changes
+        await user.save();
+
+        res.json({
+            message: "Password reset successfully"
         });
 
     } catch (error) {

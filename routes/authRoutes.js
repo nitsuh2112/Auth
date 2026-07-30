@@ -2,7 +2,8 @@ import express from "express";
 
 import {
     register,
-    login
+    login,
+    resetPassword
 } from "../controllers/authController.js";
 
 import auth from "../middleware/authMiddleware.js";
@@ -13,9 +14,11 @@ router.post("/register", register);
 
 router.post("/login", login);
 
+router.put("/reset-password", resetPassword);
+
 router.get("/profile", auth, (req, res) => {
-    res.status(200).json({
-        message: "Profile data",
+    res.json({
+        message: "Welcome",
         user: req.user
     });
 });
